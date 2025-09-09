@@ -10,7 +10,7 @@ SYSTEM_PROMPT = (
 )
 
 class Agent:
-    def __init__(self, openai_api_key: str, affinity_v2, affinity_v1=None, model: str = "gpt-4o-mini"):
+    def __init__(self, openai_api_key: str, affinity_v2, affinity_v1=None, model: str = "gpt-5"):
         self.client = OpenAI(api_key=openai_api_key)
         self.affinity_v2 = affinity_v2
         self.affinity_v1 = affinity_v1
@@ -30,13 +30,23 @@ class Agent:
                 chat_messages.append({"role": "assistant", "content": m["content"]})
 
         while True:
-            resp = self.client.chat.completions.create(
-                model=self.model,
-                messages=chat_messages,
-                temperature=0,
-                tools=TOOL_SCHEMAS,
-                tool_choice="auto",
-            )
+            try:
+                resp = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=chat_messages,
+                    temperature=0,
+                    tools=TOOL_SCHEMAS,
+                    tool_choice="auto",
+                )
+            except Exception as e:
+                # Surface a friendly, actionable error rather than crashing Streamlit
+                return (
+                    "OpenAI request failed. Likely causes: missing/invalid OPENAI_API_KEY, org/project access, or model access.\n"
+                    "Check: Streamlit → Manage App → Secrets and ensure OPENAI_API_KEY is set.\n"
+                    f"SDK message: {e}",
+                    tool_events,
+                )
+
             msg = resp.choices[0].message
             if msg.tool_calls:
                 # execute tool calls sequentially
