@@ -11,7 +11,7 @@ st.title("🤖 Affinity AI Agent")
 # --- Secrets / env
 OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
 AFFINITY_V2_BEARER = st.secrets.get("AFFINITY_V2_BEARER") or os.getenv("AFFINITY_V2_BEARER")
-# Optional: legacy v1 for create actions
+# Optional: legacy v1 for create + search fallback
 AFFINITY_V1_KEY = st.secrets.get("AFFINITY_V1_KEY") or os.getenv("AFFINITY_V1_KEY")
 
 if not OPENAI_API_KEY:
@@ -32,7 +32,15 @@ with st.expander("Diagnostics"):
     st.write(f"OpenAI key loaded: {_flag(bool(OPENAI_API_KEY))}")
     st.write(f"Affinity v2 key loaded: {_flag(bool(AFFINITY_V2_BEARER))}")
     st.write(f"Affinity v1 key (optional) loaded: {_flag(bool(AFFINITY_V1_KEY))}")
-    st.caption("If OpenAI shows ❌, add OPENAI_API_KEY to your Streamlit secrets.")
+
+    if AFFINITY_V2_BEARER:
+        if st.button("Test Affinity v2 /auth/whoami"):
+            try:
+                info = v2.whoami()
+                st.json(info)
+            except Exception as e:
+                st.error("whoami failed — see the exception for details:")
+                st.exception(e)
 
 # --- Chat state
 if "messages" not in st.session_state:
@@ -49,7 +57,7 @@ for m in st.session_state.messages:
         if isinstance(m["content"], str):
             st.markdown(m["content"])
         else:
-            st.json(m["content"])  # for structured tool output
+            st.json(m["content"])
 
 # Input
 user_input = st.chat_input("Ask me to e.g. 'Add Acme to My Companies' or 'Set Stage to Lead for entry 123 on List 77'.")
@@ -59,7 +67,6 @@ if user_input:
         with st.spinner("Thinking..."):
             try:
                 final_msg, tool_events = agent.run(st.session_state.messages)
-                # Show any tool event summaries
                 for evt in tool_events:
                     with st.expander(f"{evt['name']}"):
                         st.json(evt)
@@ -67,4 +74,4 @@ if user_input:
             except Exception as e:
                 st.error("The agent encountered an unexpected error. Check your keys and logs.")
                 st.exception(e)
-    st.session_state.messages.append({"role": "assistant", "content": final_msg if 'final_msg' in locals() else "(failed to produce a response)"})
+    st.session_state.messages.append({"role": "assistant", "content": final_msg if 'final_msg' in locals() else "(failed to produce a response)"} )
