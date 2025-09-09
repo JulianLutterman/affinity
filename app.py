@@ -25,7 +25,16 @@ v2 = AffinityV2(api_key=AFFINITY_V2_BEARER)
 v1 = AffinityV1(api_key=AFFINITY_V1_KEY) if AFFINITY_V1_KEY else None
 agent = Agent(openai_api_key=OPENAI_API_KEY, affinity_v2=v2, affinity_v1=v1)
 
-# --- Chat stated
+# --- Diagnostics
+with st.expander("Diagnostics"):
+    def _flag(ok: bool) -> str:
+        return "✅" if ok else "❌"
+    st.write(f"OpenAI key loaded: {_flag(bool(OPENAI_API_KEY))}")
+    st.write(f"Affinity v2 key loaded: {_flag(bool(AFFINITY_V2_BEARER))}")
+    st.write(f"Affinity v1 key (optional) loaded: {_flag(bool(AFFINITY_V1_KEY))}")
+    st.caption("If OpenAI shows ❌, add OPENAI_API_KEY to your Streamlit secrets.")
+
+# --- Chat state
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {"role": "system", "content": agent.system_prompt},
@@ -48,10 +57,14 @@ if user_input:
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
-            final_msg, tool_events = agent.run(st.session_state.messages)
-            # Show any tool event summaries
-            for evt in tool_events:
-                with st.expander(f"{evt['name']}"):
-                    st.json(evt)
-            st.markdown(final_msg)
-    st.session_state.messages.append({"role": "assistant", "content": final_msg})
+            try:
+                final_msg, tool_events = agent.run(st.session_state.messages)
+                # Show any tool event summaries
+                for evt in tool_events:
+                    with st.expander(f"{evt['name']}"):
+                        st.json(evt)
+                st.markdown(final_msg)
+            except Exception as e:
+                st.error("The agent encountered an unexpected error. Check your keys and logs.")
+                st.exception(e)
+    st.session_state.messages.append({"role": "assistant", "content": final_msg if 'final_msg' in locals() else "(failed to produce a response)"})
