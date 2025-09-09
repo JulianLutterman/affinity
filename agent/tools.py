@@ -2,7 +2,7 @@ import json
 from typing import Any, Dict
 from pydantic import BaseModel, Field
 
-# ---- Tool Schemas
+# ---- Tool Schemas (OpenAI function calling)
 
 class AddCompanyArgs(BaseModel):
     name: str
@@ -16,6 +16,8 @@ class AddNoteArgs(BaseModel):
 class ReadNotesArgs(BaseModel):
     company_id: int
     limit: int | None = Field(default=20)
+    filter: str | None = Field(default=None, description="Optional filter per v2 filtering language")
+    total_count: bool | None = Field(default=False)
 
 class AddCompanyToListArgs(BaseModel):
     list_id: int
@@ -26,13 +28,13 @@ class UpdateFieldArgs(BaseModel):
     list_entry_id: int
     field_id: str
     value_json: Dict[str, Any] = Field(
-        ..., description='FieldUpdate.value JSON, e.g. {"type":"text","data":"Hello"}'
+        ..., description='FieldValueUpdate JSON, e.g. {"type":"text","data":"Hello"}'
     )
 
 class BatchUpdateFieldsArgs(BaseModel):
     list_id: int
     list_entry_id: int
-    operations: list = Field(..., description="ListEntryBatchOperationRequest.operations array")
+    updates: list = Field(..., description="Array of { id: <fieldId>, value: <FieldValueUpdate> }")
 
 class FindListIdArgs(BaseModel):
     name: str
@@ -41,18 +43,15 @@ class FindCompanyIdArgs(BaseModel):
     name: str | None = None
     domain: str | None = None
 
-class WhoAmIArgs(BaseModel):
-    pass
-
 TOOL_SCHEMAS = [
     {"type": "function", "function": {
         "name": "add_company",
-        "description": "Create a new Company (Organization). Uses Affinity v1 if configured.",
+        "description": "Create a new Company. Not exposed in v2 per provided docs; returns an actionable message.",
         "parameters": AddCompanyArgs.model_json_schema(),
     }},
     {"type": "function", "function": {
         "name": "add_note_to_company",
-        "description": "Add a note to a Company (v1 fallback).",
+        "description": "Add a note to a Company. Not exposed in v2 per provided docs; returns an actionable message.",
         "parameters": AddNoteArgs.model_json_schema(),
     }},
     {"type": "function", "function": {
@@ -62,7 +61,7 @@ TOOL_SCHEMAS = [
     }},
     {"type": "function", "function": {
         "name": "add_company_to_list",
-        "description": "Add a Company row to a List (v1 fallback).",
+        "description": "Add a Company row to a List. Creating list entries is not exposed in v2 per provided docs; returns an actionable message.",
         "parameters": AddCompanyToListArgs.model_json_schema(),
     }},
     {"type": "function", "function": {
@@ -72,7 +71,7 @@ TOOL_SCHEMAS = [
     }},
     {"type": "function", "function": {
         "name": "batch_update_list_fields",
-        "description": "Batch update multiple fields on a List Entry via v2.",
+        "description": "Batch update multiple fields on a List Entry via v2 (operation=update-fields).",
         "parameters": BatchUpdateFieldsArgs.model_json_schema(),
     }},
     {"type": "function", "function": {
@@ -82,43 +81,39 @@ TOOL_SCHEMAS = [
     }},
     {"type": "function", "function": {
         "name": "find_company_id",
-        "description": "Find a Company by name or domain via v2; falls back to v1 search if available.",
+        "description": "Find a Company by name or domain via v2.",
         "parameters": FindCompanyIdArgs.model_json_schema(),
     }},
     {"type": "function", "function": {
         "name": "auth_whoami",
         "description": "Return info about the authenticated user/org/permissions (v2).",
-        "parameters": WhoAmIArgs.model_json_schema(),
+        "parameters": {},
     }},
 ]
+
+# ---- Dispatcher
 
 def _parse(model_cls, args_json: str):
     data = json.loads(args_json or "{}")
     return model_cls(**data)
 
-def dispatch_tool(name: str, args_json: str, v2, v1=None):
+def dispatch_tool(name: str, args_json: str, v2):
     try:
         if name == "add_company":
-            args = _parse(AddCompanyArgs, args_json)
-            if not v1:
-                return {"error": "Affinity v1 key not configured; cannot create companies."}
-            return v1.create_company(name=args.name, domain=args.domain, website=args.website)
+            _ = _parse(AddCompanyArgs, args_json)
+            return {"error": "Creating companies isn’t exposed in Affinity v2 per the docs you shared. Use the Affinity UI to create the company, then I can find it and manage its list fields/notes."}
 
         if name == "add_note_to_company":
-            args = _parse(AddNoteArgs, args_json)
-            if not v1:
-                return {"error": "Affinity v1 key not configured; cannot add notes."}
-            return v1.create_company_note(company_id=args.company_id, html=args.html)
+            _ = _parse(AddNoteArgs, args_json)
+            return {"error": "Creating notes isn’t exposed in Affinity v2 per the docs you shared. Create the note in the UI for now; I can read notes via v2."}
 
         if name == "read_notes_for_company":
             args = _parse(ReadNotesArgs, args_json)
-            return v2.get_company_notes(company_id=args.company_id, limit=args.limit)
+            return v2.get_company_notes(company_id=args.company_id, limit=args.limit, filter=args.filter, total_count=args.total_count)
 
         if name == "add_company_to_list":
-            args = _parse(AddCompanyToListArgs, args_json)
-            if not v1:
-                return {"error": "Affinity v1 key not configured; cannot add to lists."}
-            return v1.add_company_to_list(list_id=args.list_id, company_id=args.company_id)
+            _ = _parse(AddCompanyToListArgs, args_json)
+            return {"error": "Adding a company to a list (creating a list entry) isn’t exposed in v2 per the docs you shared. Once the row exists, I can update its fields via v2."}
 
         if name == "update_list_field":
             args = _parse(UpdateFieldArgs, args_json)
@@ -132,7 +127,7 @@ def dispatch_tool(name: str, args_json: str, v2, v1=None):
         if name == "batch_update_list_fields":
             args = _parse(BatchUpdateFieldsArgs, args_json)
             return v2.batch_update_list_fields(
-                list_id=args.list_id, list_entry_id=args.list_entry_id, operations=args.operations
+                list_id=args.list_id, list_entry_id=args.list_entry_id, updates=args.updates
             )
 
         if name == "find_list_id_by_name":
@@ -141,26 +136,13 @@ def dispatch_tool(name: str, args_json: str, v2, v1=None):
 
         if name == "find_company_id":
             args = _parse(FindCompanyIdArgs, args_json)
-            # Try v2
-            try:
-                return v2.find_company(name=args.name, domain=args.domain)
-            except PermissionError as e:
-                # Optional fallback to v1 search, if available
-                if v1 and (args.name or args.domain):
-                    term = args.domain or args.name
-                    return {
-                        "warning": f"v2 companies listing not permitted; fell back to v1 search for term={term}",
-                        "v1_results": v1.search_companies(term=term)
-                    }
-                return {"error": str(e)}
-            except Exception as e:
-                return {"error": f"find_company_id failed: {e}"}
+            return v2.find_company(name=args.name, domain=args.domain)
 
         if name == "auth_whoami":
-            _ = _parse(WhoAmIArgs, args_json)
             return v2.whoami()
 
         return {"error": f"Unknown tool {name}"}
 
     except Exception as e:
         return {"error": f"Tool dispatcher error: {e}"}
+
