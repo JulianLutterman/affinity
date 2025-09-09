@@ -1,0 +1,8 @@
+# Copy this file to .streamlit/secrets.toml and fill in your keys.
+OPENAI_API_KEY = "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"
+
+# Affinity v2 uses Bearer auth
+AFFINITY_V2_BEARER = "PBrcLqxhRSAitYq2JnFybbCDSmTB2O_fIeEPFKdsi_Y"
+
+# Optional: Affinity v1 key (Basic auth) for create actions
+AFFINITY_V1_KEY = "PBrcLqxhRSAitYq2JnFybbCDSmTB2O_fIeEPFKdsi_Y"
