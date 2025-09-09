@@ -19,7 +19,6 @@ class Agent:
 
     def run(self, messages: List[Dict[str, Any]]) -> Tuple[str, List[Dict[str, Any]]]:
         tool_events: List[Dict[str, Any]] = []
-        # Convert messages for Chat Completions
         chat_messages = []
         for m in messages:
             if m["role"] == "system":
@@ -38,7 +37,6 @@ class Agent:
                     tool_choice="auto",
                 )
             except Exception as e:
-                # Surface a friendly, actionable error rather than crashing Streamlit
                 return (
                     "OpenAI request failed. Likely causes: missing/invalid OPENAI_API_KEY, org/project access, or model access.\n"
                     "Check: Streamlit → Manage App → Secrets and ensure OPENAI_API_KEY is set.\n"
@@ -48,20 +46,17 @@ class Agent:
 
             msg = resp.choices[0].message
             if msg.tool_calls:
-                # execute tool calls sequentially
                 for tc in msg.tool_calls:
                     name = tc.function.name
                     args_json = tc.function.arguments
                     result = dispatch_tool(name, args_json, v2=self.affinity_v2, v1=self.affinity_v1)
                     tool_events.append({"name": name, "args": args_json, "result": result})
-                    # feed result back to the model
                     chat_messages.append({
                         "role": "tool",
                         "tool_call_id": tc.id,
                         "name": name,
                         "content": str(result)
                     })
-                # ask model to produce a final answer after tools
                 continue
             else:
                 final = msg.content or "(no content)"
