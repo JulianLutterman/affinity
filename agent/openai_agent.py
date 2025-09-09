@@ -34,7 +34,6 @@ class Agent:
                 resp = self.client.chat.completions.create(
                     model=self.model,
                     messages=chat_messages,
-                    temperature=0,
                     tools=TOOL_SCHEMAS,
                     tool_choice="auto",
                 )
