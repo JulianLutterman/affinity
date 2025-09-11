@@ -95,7 +95,7 @@ def add_company_to_list(list_id: int, organization_id: int) -> Dict[str, Any] | 
 
 
 @function_tool
-def change_field_in_list(list_id: int, organization_id: int, field_name_or_id: str, value: Any) -> Dict[str, Any]:
+def change_field_in_list(list_id: int, organization_id: int, field_name_or_id: str, value: str | int | float | bool | List[str] | List[int]) -> Dict[str, Any]:
     """Change a field value for a company on a specific list.
 
     Behavior:
@@ -108,7 +108,7 @@ def change_field_in_list(list_id: int, organization_id: int, field_name_or_id: s
         list_id: The list containing the company.
         organization_id: The target company ID.
         field_name_or_id: Display name (on that list) or numeric field ID.
-        value: New value. Strings for dropdowns will be mapped to the correct option id.
+        value: New value. Accepts string/int/float/bool, or list of strings/ints for multi-select dropdowns.
     Returns: The updated/created field value resource.
     """
     return _client().change_field_value_in_list(list_id=list_id, organization_id=organization_id, field_name_or_id=field_name_or_id, value=value)
