@@ -1,70 +1,95 @@
+from __future__ import annotations
 import os
-import json
+import asyncio
+from typing import Dict, List
+
 import streamlit as st
-from agent.openai_agent import Agent
-from affinity.client_v2 import AffinityV2
+from agents import Runner
 
-st.set_page_config(page_title="Affinity AI Agent (v2)", page_icon="🤖", layout="centered")
-st.title("🤖 Affinity AI Agent — v2 only")
+from affinity_client import AffinityAPI
+from agent_tools import AFFINITY as _GLOBAL_AFFINITY, find_company_ids  # noqa
+from agent_tools import add_company, add_note, read_notes, find_list_ids, add_company_to_list, change_field_in_list
+from agent_tools import AFFINITY as GLOBAL_AFFINITY  # for explicit set
+from agent_setup import build_agent
 
-# --- Secrets / env
-OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-AFFINITY_V2_BEARER = st.secrets.get("AFFINITY_V2_BEARER") or os.getenv("AFFINITY_V2_BEARER")
+st.set_page_config(page_title="Affinity Agent", page_icon="🤖")
 
-if not OPENAI_API_KEY:
-    st.error("OPENAI_API_KEY not set. Add it to Streamlit secrets or your environment.")
+st.title("🤖 Affinity Agent (OpenAI Agents SDK)")
+st.caption("Chat with an agent that can take actions in Affinity on your behalf.")
+
+# --- Secrets / Keys --------------------------------------------------------
+openai_key = st.secrets.get("OPENAI_API_KEY", None) or os.getenv("OPENAI_API_KEY")
+affinity_key = st.secrets.get("AFFINITY_API_KEY", None) or os.getenv("AFFINITY_API_KEY")
+openai_model = st.secrets.get("OPENAI_MODEL", os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
+
+with st.sidebar:
+    st.header("Configuration")
+    openai_key = st.text_input("OpenAI API Key", value=openai_key or "", type="password")
+    openai_model = st.text_input("OpenAI Model", value=openai_model)
+    affinity_key = st.text_input("Affinity API Key", value=affinity_key or "", type="password")
+    st.markdown("""
+**Tip:** Generate an Affinity API key in the Affinity web app (Settings → API).
+Authentication uses **HTTP Basic** with blank username and the API key as the password.
+    """)
+
+if not openai_key or not affinity_key:
+    st.warning("Add your OpenAI and Affinity API keys in the sidebar to begin.")
     st.stop()
-if not AFFINITY_V2_BEARER:
-    st.error("AFFINITY_V2_BEARER not set. Add it to Streamlit secrets or your environment.")
-    st.stop()
 
-# --- Initialize API client
-v2 = AffinityV2(api_key=AFFINITY_V2_BEARER)
-agent = Agent(openai_api_key=OPENAI_API_KEY, affinity_v2=v2)
+# Export keys to env for the Agents SDK & our client
+os.environ["OPENAI_API_KEY"] = openai_key
+os.environ["OPENAI_MODEL"] = openai_model
+os.environ["AFFINITY_API_KEY"] = affinity_key
 
-# --- Diagnostics
-with st.expander("Diagnostics"):
-    def _flag(ok: bool) -> str:
-        return "✅" if ok else "❌"
-    st.write(f"OpenAI key loaded: {_flag(bool(OPENAI_API_KEY))}")
-    st.write(f"Affinity v2 key loaded: {_flag(bool(AFFINITY_V2_BEARER))}")
-    if st.button("Test Affinity v2 /auth/whoami"):
-        try:
-            st.json(v2.whoami())
-        except Exception as e:
-            st.error("whoami failed — see details below")
-            st.exception(e)
+# Bind our Affinity client to the global used by the tools module
+GLOBAL_AFFINITY = AffinityAPI(affinity_key)
 
-# --- Chat state
+# Build the agent (uses tools decorated with @function_tool)
+agent = build_agent()
+
+# --- Chat State ------------------------------------------------------------
 if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "system", "content": agent.system_prompt},
-        {"role": "assistant", "content": "Hi! I can read notes, find list/company IDs, and update list fields via Affinity v2. Create actions (add company, add note, add to list) are not exposed in v2 per the docs you shared; I'll tell you what to do when you try them."},
-    ]
+    st.session_state.messages: List[Dict[str, str]] = []
 
-# Render history (skip system)
+# Render chat history
 for m in st.session_state.messages:
-    if m["role"] == "system":
-        continue
-    with st.chat_message("assistant" if m["role"] == "assistant" else "user"):
-        if isinstance(m["content"], str):
-            st.markdown(m["content"])
-        else:
-            st.json(m["content"])  # for structured tool output
+    with st.chat_message(m["role"]):
+        st.markdown(m["content"])
 
-# Input
-user_input = st.chat_input("Ask me to e.g. 'Find the list id for My Companies' or 'Set Stage for list entry 123' or 'Show notes for company 456'.")
+user_input = st.chat_input("Ask me to add a company, add a note, manage lists, etc.")
 if user_input:
     st.session_state.messages.append({"role": "user", "content": user_input})
+    with st.chat_message("user"):
+        st.markdown(user_input)
+
+    # Build a short rolling context for the agent input (keeps things simple)
+    history_text = "\n".join([
+        f"{m['role'].capitalize()}: {m['content']}" for m in st.session_state.messages[-6:]
+    ])
+
+    # Run the agent synchronously in Streamlit
+    async def run_agent(prompt: str):
+        return await Runner.run(agent, input=prompt, max_turns=8)
+
     with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            try:
-                final_msg, tool_events = agent.run(st.session_state.messages)
-                for evt in tool_events:
-                    with st.expander(f"{evt['name']}"):
-                        st.json(evt)
-                st.markdown(final_msg)
-            except Exception as e:
-                st.error("The agent encountered an unexpected error. Check your keys and logs.")
-                st.exception(e)
-    st.session_state.messages.append({"role": "assistant", "content": final_msg if 'final_msg' in locals() else "(failed to produce a response)"})
+        placeholder = st.empty()
+        try:
+            result = asyncio.run(run_agent(history_text))
+            final = str(result.final_output)
+        except Exception as e:
+            final = f"❌ Error: {e}"
+        placeholder.markdown(final)
+        st.session_state.messages.append({"role": "assistant", "content": final})
+
+st.divider()
+with st.expander("Quick actions (examples)"):
+    st.markdown(
+        "- *Find company IDs:* `find_company_ids(query=""Acme"" )`\n"
+        "- *Find list IDs:* `find_list_ids(list_name=""Target Accounts"")`\n"
+        "- *Add company:* `add_company(name=""Acme Corp"", domain=""acme.com"")`\n"
+        "- *Add note:* `add_note(content=""Spoke with buyer"", organization_id=123)`\n"
+        "- *Add company to list:* `add_company_to_list(list_id=456, organization_id=123)`\n"
+        "- *Change field in list:* `change_field_in_list(list_id=456, organization_id=123, field_name_or_id=""Status"", value=""Prospect"")`\n"
+    )
+
+st.caption("Built with Streamlit, Affinity API, and the OpenAI Agents SDK.")
