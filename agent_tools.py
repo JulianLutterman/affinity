@@ -86,26 +86,29 @@ def find_list_ids(list_name: str) -> List[Dict[str, Any]]:
 
 
 @function_tool
-def add_company_to_list(list_id: int, organization_id: int) -> Dict[str, Any]:
-    """Add an existing organization to a list.
+def add_company_to_list(list_id: int, organization_id: int) -> Dict[str, Any] | None:
+    """Add an existing organization to a list (idempotent).
 
-    Args:
-        list_id: List ID (must be an organization-type list).
-        organization_id: Organization ID to add.
-    Returns: The created list entry.
+    If the org is already on the list, this returns `None` and does not create a duplicate.
     """
-    return _client().add_organization_to_list(list_id=list_id, organization_id=organization_id)
+    return _client().add_organization_to_list_if_needed(list_id=list_id, organization_id=organization_id)
 
 
 @function_tool
-def change_field_in_list(list_id: int, organization_id: int, field_name_or_id: str, value: str) -> Dict[str, Any]:
+def change_field_in_list(list_id: int, organization_id: int, field_name_or_id: str, value: Any) -> Dict[str, Any]:
     """Change a field value for a company on a specific list.
+
+    Behavior:
+    - Ensures the company is **on the list**. If not, adds it (no duplicates).
+    - Accepts **human-friendly values** (e.g., dropdown option text like "Qualification Pool")
+      and automatically converts to the **expected integer option id**.
+    - Updates an existing field value when present; otherwise creates it.
 
     Args:
         list_id: The list containing the company.
         organization_id: The target company ID.
         field_name_or_id: Display name (on that list) or numeric field ID.
-        value: New value (string). For dropdowns, pass the option text. For numbers/dates, pass the string representation.
+        value: New value. Strings for dropdowns will be mapped to the correct option id.
     Returns: The updated/created field value resource.
     """
     return _client().change_field_value_in_list(list_id=list_id, organization_id=organization_id, field_name_or_id=field_name_or_id, value=value)
