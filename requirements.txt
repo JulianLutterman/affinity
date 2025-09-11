@@ -1,5 +1,5 @@
-openai>=1.39.0
-streamlit>=1.36.0
-requests>=2.31.0
-pydantic>=2.7.0
-python-dotenv>=1.0.1
+streamlit>=1.33
+openai-agents>=0.2.9
+requests>=2.32.0
+pydantic>=2.7
+typing_extensions>=4.12
