@@ -21,13 +21,13 @@ st.caption("Chat with an agent that can take actions in Affinity on your behalf.
 openai_key = st.secrets.get("OPENAI_API_KEY", None) or os.getenv("OPENAI_API_KEY")
 affinity_key = st.secrets.get("AFFINITY_API_KEY", None) or os.getenv("AFFINITY_API_KEY")
 openai_model = st.secrets.get("OPENAI_MODEL", os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
-zhipu_key = st.secrets.get("ZHIPUAI_API_KEY", None) or os.getenv("ZHIPUAI_API_KEY")
+openrouter_key = st.secrets.get("OPENROUTER_API_KEY", None) or os.getenv("OPENROUTER_API_KEY")
 
 with st.sidebar:
     st.header("Configuration")
     openai_model = st.text_input("Model (supports LiteLLM syntax)", value=openai_model)
     openai_key = st.text_input("OpenAI API Key (for OpenAI models or tracing)", value=openai_key or "", type="password")
-    zhipu_key = st.text_input("ZhipuAI API Key (for GLM via LiteLLM)", value=zhipu_key or "", type="password")
+    openrouter_key = st.text_input("ZhipuAI API Key (for GLM via LiteLLM)", value=openrouter_key or "", type="password")
     affinity_key = st.text_input("Affinity API Key", value=affinity_key or "", type="password")
     st.markdown("""
 **Tip:** For GLM via LiteLLM, set the model to `litellm/zhipuai/glm-4.5` and provide a ZhipuAI key.
@@ -41,7 +41,7 @@ if not affinity_key:
     st.warning("Add your Affinity API key in the sidebar to begin.")
     st.stop()
 
-if using_litellm and not zhipu_key:
+if using_litellm and not openrouter_key:
     st.warning("Using LiteLLM model. Add your ZhipuAI API key in the sidebar.")
     st.stop()
 
@@ -54,8 +54,8 @@ os.environ["OPENAI_MODEL"] = openai_model
 os.environ["AFFINITY_API_KEY"] = affinity_key
 
 # For LiteLLM providers, set their env key. For ZhipuAI, LiteLLM expects ZHIPUAI_API_KEY.
-if using_litellm and zhipu_key:
-    os.environ["ZHIPUAI_API_KEY"] = zhipu_key
+if using_litellm and openrouter_key:
+    os.environ["OPENROUTER_API_KEY"] = openrouter_key
 
 # OpenAI key can be used for OpenAI models and/or trace export
 if openai_key:
