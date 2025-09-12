@@ -14,7 +14,7 @@ from agent_setup import build_agent
 
 st.set_page_config(page_title="Affinity Agent", page_icon="🤖")
 
-st.title("Affinity Agent")
+st.title("Affinity Agent - DN Capital")
 
 # --- Secrets / Keys --------------------------------------------------------
 openai_key = st.secrets.get("OPENAI_API_KEY", None) or os.getenv("OPENAI_API_KEY")
