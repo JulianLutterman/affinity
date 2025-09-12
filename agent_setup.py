@@ -17,7 +17,7 @@ from agent_tools import (
 def build_agent() -> Agent:
     """Configure the Affinity Agent with tools and instructions."""
     model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now().strftime("%d/%m/%y")
 
     instructions = (
         f"Today is {today}. "
