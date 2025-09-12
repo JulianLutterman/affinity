@@ -162,6 +162,69 @@ class AffinityAPI:
                 break
         return entries
 
+    def get_list_entry_field_values(
+        self,
+        list_id: int,
+        organization_id: int,
+        *,
+        resolve_dropdowns: bool = True,
+        include_field_meta: bool = True,
+    ) -> List[Dict[str, Any]]:
+        """
+        Return field values for a specific list entry (company-on-list).
+    
+        - Filters /field-values by the list_entry_id for (list_id, organization_id).
+        - If include_field_meta=True, adds: field_name, value_type.
+        - If resolve_dropdowns=True, adds value_text with dropdown option labels
+          (or list of labels for multi-selects).
+    
+        Returns an empty list if the organization is not on the list.
+        """
+        le_id = self.get_list_entry_id(list_id, organization_id)
+        if le_id is None:
+            return []
+    
+        # Get all org field values, then keep only those for this list entry
+        values = [
+            fv for fv in self.get_field_values(organization_id=organization_id)
+            if int(fv.get("list_entry_id", 0)) == le_id
+        ]
+    
+        if not (resolve_dropdowns or include_field_meta):
+            return values
+    
+        # Fetch field metadata for this list
+        fields = {int(f["id"]): f for f in self.get_fields(list_id=list_id)}
+        for fv in values:
+            try:
+                fid = int(fv.get("field_id"))
+            except Exception:
+                continue
+            field = fields.get(fid)
+            if not field:
+                continue
+    
+            if include_field_meta:
+                fv["field_name"] = field.get("name")
+                fv["value_type"] = field.get("value_type")
+    
+            if resolve_dropdowns:
+                opts = field.get("dropdown_options") or field.get("options") or []
+                by_id = {int(o["id"]): o.get("text") for o in opts if o.get("id") is not None}
+                v = fv.get("value")
+    
+                if isinstance(v, list):
+                    fv["value_text"] = [by_id.get(int(x), x) for x in v if x is not None]
+                else:
+                    # handle int or stringified int
+                    try:
+                        fv["value_text"] = by_id.get(int(v), v)
+                    except Exception:
+                        fv["value_text"] = v
+    
+        return values
+
+
     def add_organization_to_list(self, list_id: int, organization_id: int) -> Dict[str, Any]:
         payload = {"entity_id": organization_id}
         return self._request("POST", f"/lists/{list_id}/list-entries", json=payload)
