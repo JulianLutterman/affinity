@@ -14,7 +14,6 @@ def _client() -> AffinityAPI:
     if AFFINITY is None:
         AFFINITY = AffinityAPI(os.getenv("AFFINITY_API_KEY"))
     return AFFINITY
-
 # --- Rich text helpers -----------------------------------------------------
 
 def _looks_like_html(s: str) -> bool:
@@ -48,14 +47,27 @@ def _markdown_to_html(md: str) -> str:
         html_paragraphs.append(f"<p>{p.replace('\n', '<br>')}</p>")
     return "".join(html_paragraphs)
 
+
 @function_tool
 def add_company(name: str, domain: Optional[str] = None) -> Dict[str, Any]:
-    """Create a new organization (company)."""
+    """Create a new organization (company).
+
+    Args:
+        name: Organization name.
+        domain: Primary domain, e.g. "example.com" (optional).
+    Returns: The created organization resource.
+    """
     return _client().create_organization(name=name, domain=domain)
+
 
 @function_tool
 def find_company_ids(query: str) -> List[Dict[str, Any]]:
-    """Find company IDs by name or website term."""
+    """Find company IDs by name or website term.
+
+    Args:
+        query: A name fragment or domain, e.g. "Acme" or "acme.com".
+    Returns: [{ id, name, domain }]
+    """
     res = _client().search_organizations(term=query)
     orgs = res.get("organizations", []) if isinstance(res, dict) else res
     return [{"id": o.get("id"), "name": o.get("name"), "domain": o.get("domain") or (o.get("domains") or [None])[0]} for o in orgs]
@@ -79,6 +91,13 @@ def add_note(
       Otherwise, send as plain text (type omitted ⇒ defaults to 0).
 
     The '[JL] CURRENT_DATE_PLACEHOLDER' prefix (required by agent instructions) is preserved.
+
+    Args:
+        content: The note body.
+        organization_id: Optional organization ID to tag.
+        person_id: Optional person ID to tag.
+        opportunity_id: Optional opportunity ID to tag.
+    Returns: The created note resource.
     """
     org_ids = [organization_id] if organization_id else None
     person_ids = [person_id] if person_id else None
@@ -116,22 +135,55 @@ def add_note(
 
 @function_tool
 def read_notes(organization_id: Optional[int] = None, person_id: Optional[int] = None, opportunity_id: Optional[int] = None, creator_id: Optional[int] = None) -> List[Dict[str, Any]]:
-    """Read notes filtered by entity and/or creator."""
+    """Read notes filtered by entity and/or creator.
+
+    Args:
+        organization_id: Filter by organization.
+        person_id: Filter by person.
+        opportunity_id: Filter by opportunity.
+        creator_id: Filter by the note's creator.
+    Returns: A list of note objects.
+    """
     data = _client().get_notes(organization_id=organization_id, person_id=person_id, opportunity_id=opportunity_id, creator_id=creator_id)
     notes = data.get("notes", []) if isinstance(data, dict) else data
     return notes
 
+
 @function_tool
 def find_list_ids(list_name: str) -> List[Dict[str, Any]]:
-    """Find list IDs whose name matches the given string (case-insensitive substring)."""
+    """Find list IDs whose name matches the given string (case-insensitive substring).
+
+    Args:
+        list_name: Name fragment, e.g. "Target Accounts".
+    Returns: [{ id, name, type }]
+    """
     return _client().find_list_ids_by_name(list_name)
+
 
 @function_tool
 def add_company_to_list(list_id: int, organization_id: int) -> Dict[str, Any] | None:
-    """Add an existing organization to a list (idempotent)."""
+    """Add an existing organization to a list (idempotent).
+
+    If the org is already on the list, this returns `None` and does not create a duplicate.
+    """
     return _client().add_organization_to_list_if_needed(list_id=list_id, organization_id=organization_id)
+
 
 @function_tool
 def change_field_in_list(list_id: int, organization_id: int, field_name_or_id: str, value: str | int | float | bool | List[str] | List[int]) -> Dict[str, Any]:
-    """Change a field value for a company on a specific list."""
+    """Change a field value for a company on a specific list.
+
+    Behavior:
+    - Ensures the company is **on the list** (no duplicates).
+    - Accepts **human-friendly values** (e.g., dropdown text like "Qualification Pool").
+    - Uses exact → substring → fuzzy match to map to the correct dropdown option id(s).
+    - Updates existing field value if present; otherwise creates it.
+
+    Args:
+        list_id: The list containing the company.
+        organization_id: The target company ID.
+        field_name_or_id: Display name (on that list) or numeric field ID.
+        value: New value. Accepts string/int/float/bool, or list/comma-separated strings for multi-select dropdowns.
+    Returns: The updated/created field value resource.
+    """
     return _client().change_field_value_in_list(list_id=list_id, organization_id=organization_id, field_name_or_id=field_name_or_id, value=value)
