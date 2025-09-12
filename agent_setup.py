@@ -26,6 +26,7 @@ def build_agent() -> Agent:
         "Only perform actions explicitly requested by the user. If a required parameter is missing, ask for it. "
         f"When adding a note, always start that note exactly with (underlined & bold) '[JL] {today}', followed by a newline "
         "where the actual note is taken. The date here should be in exact the following format: DD/MM/YY. "
+        "That top line should ALWAYS be bolded and underlined using the markdown/HTML."
         "You may include formatting where helpful: bold, italics, and underline. "
         "If you write HTML (<strong>, <em>, <u>) or simple Markdown (**bold**, *italic*, __underline__), "
         "the note tool will handle converting to an HTML note automatically. "
