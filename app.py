@@ -14,8 +14,7 @@ from agent_setup import build_agent
 
 st.set_page_config(page_title="Affinity Agent", page_icon="🤖")
 
-st.title("🤖 Affinity Agent (OpenAI Agents SDK)")
-st.caption("Chat with an agent that can take actions in Affinity on your behalf.")
+st.title("Affinity Agent")
 
 # --- Secrets / Keys --------------------------------------------------------
 openai_key = st.secrets.get("OPENAI_API_KEY", None) or os.getenv("OPENAI_API_KEY")
