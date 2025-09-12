@@ -12,7 +12,9 @@ from agent_tools import (
     find_list_ids,
     add_company_to_list,
     change_field_in_list,
+    read_list_entry_fields,  # <-- add this import
 )
+
 
 def build_agent() -> Agent:
     """Configure the Affinity Agent with tools and instructions."""
@@ -45,6 +47,7 @@ def build_agent() -> Agent:
             find_list_ids,
             add_company_to_list,
             change_field_in_list,
+            read_list_entry_fields,  # <-- add this
         ],
     )
     return agent
