@@ -170,6 +170,26 @@ def add_company_to_list(list_id: int, organization_id: int) -> Dict[str, Any] | 
 
 
 @function_tool
+def read_list_entry_fields(
+    list_id: int,
+    organization_id: int,
+    resolve_dropdowns: bool = True
+) -> List[Dict[str, Any]]:
+    """Read field values for a company on a specific list (that list entry).
+
+    Returns a list of field-value objects. Each item includes field_name and
+    value_type, and value_text for dropdowns if resolve_dropdowns=True.
+    Returns [] if the company is not on the list.
+    """
+    return _client().get_list_entry_field_values(
+        list_id=list_id,
+        organization_id=organization_id,
+        resolve_dropdowns=resolve_dropdowns,
+        include_field_meta=True,
+    )
+
+
+@function_tool
 def change_field_in_list(list_id: int, organization_id: int, field_name_or_id: str, value: str | int | float | bool | List[str] | List[int]) -> Dict[str, Any]:
     """Change a field value for a company on a specific list.
 
