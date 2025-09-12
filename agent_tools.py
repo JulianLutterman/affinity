@@ -99,16 +99,16 @@ def change_field_in_list(list_id: int, organization_id: int, field_name_or_id: s
     """Change a field value for a company on a specific list.
 
     Behavior:
-    - Ensures the company is **on the list**. If not, adds it (no duplicates).
-    - Accepts **human-friendly values** (e.g., dropdown option text like "Qualification Pool")
-      and automatically converts to the **expected integer option id**.
-    - Updates an existing field value when present; otherwise creates it.
+    - Ensures the company is **on the list** (no duplicates).
+    - Accepts **human-friendly values** (e.g., dropdown text like "Qualification Pool").
+    - Uses exact → substring → fuzzy match to map to the correct dropdown option id(s).
+    - Updates existing field value if present; otherwise creates it.
 
     Args:
         list_id: The list containing the company.
         organization_id: The target company ID.
         field_name_or_id: Display name (on that list) or numeric field ID.
-        value: New value. Accepts string/int/float/bool, or list of strings/ints for multi-select dropdowns.
+        value: New value. Accepts string/int/float/bool, or list/comma-separated strings for multi-select dropdowns.
     Returns: The updated/created field value resource.
     """
     return _client().change_field_value_in_list(list_id=list_id, organization_id=organization_id, field_name_or_id=field_name_or_id, value=value)
