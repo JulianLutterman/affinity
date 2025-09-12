@@ -101,16 +101,3 @@ if user_input:
             final = f"❌ Error: {e}"
         placeholder.markdown(final)
         st.session_state.messages.append({"role": "assistant", "content": final})
-
-st.divider()
-with st.expander("Quick actions (examples)"):
-    st.markdown(
-        "- *Find company IDs:* `find_company_ids(query=""Acme"" )`\n"
-        "- *Find list IDs:* `find_list_ids(list_name=""Target Accounts"")`\n"
-        "- *Add company:* `add_company(name=""Acme Corp"", domain=""acme.com"")`\n"
-        "- *Add note:* `add_note(content=""Spoke with buyer"", organization_id=123)`\n"
-        "- *Add company to list:* `add_company_to_list(list_id=456, organization_id=123)`\n"
-        "- *Change field in list:* `change_field_in_list(list_id=456, organization_id=123, field_name_or_id=""Status"", value=""Prospect"")`\n"
-    )
-
-st.caption("Built with Streamlit, Affinity API, and the OpenAI Agents SDK.")
