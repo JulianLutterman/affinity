@@ -89,7 +89,7 @@ if user_input:
 
     # Run the agent synchronously in Streamlit
     async def run_agent(prompt: str):
-        return await Runner.run(agent, input=prompt, max_turns=8)
+        return await Runner.run(agent, input=prompt, max_turns=100)
 
     with st.chat_message("assistant"):
         placeholder = st.empty()
