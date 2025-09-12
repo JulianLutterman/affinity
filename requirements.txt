@@ -3,3 +3,4 @@ openai-agents>=0.2.9
 requests>=2.32.0
 pydantic>=2.7
 typing_extensions>=4.12
+litellm>=1.40.0
