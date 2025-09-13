@@ -35,8 +35,10 @@ def build_agent() -> Agent:
         "You may include formatting where helpful: bold, italics, and underline. "
         "If you write HTML (<strong>, <em>, <u>)"
         "the note tool will handle converting to an HTML note automatically. You are encouraged to format your notes using this HTML option."
-        "Be concise."
+        "Be concise. "
+        "These are all the possible values that the Status field can take on: ['Qualification Pool', '1. Qualified', '2a. Senior Interest', '2b. Watch', 'SJS Watchlist ', 'NJM Watchlist', '2a. Interest (old)', '* Hearts and Minds', '3a. Consumer Meeting', '3b. SaaS Meeting', '4. Investment Committee', '5. TS Negotiation', '6. Post TS DD', '7a. Portfolio', '7b. Portfolio HP', '7c. Portfolio Micro-Seed', '8a. Portfolio Follow-on', '8b. Portfolio Decision', '9. Portfolio Exited', '0a. Turned Down', '0b. Missed', '0c. Lost']"
     )
+
 
     agent = Agent(
         name="Affinity Agent",
