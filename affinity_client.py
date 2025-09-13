@@ -14,6 +14,12 @@ class AffinityAPI:
     Base URL: https://api.affinity.co
     """
 
+    def _to_int(self, v: Any, default: Optional[int] = None) -> Optional[int]:
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            return default
+
     def __init__(self, api_key: Optional[str] = None, base_url: str = "https://api.affinity.co"):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key or os.getenv("AFFINITY_API_KEY")
@@ -51,6 +57,28 @@ class AffinityAPI:
                     return resp.text
             return None
         resp.raise_for_status()
+
+    def _closest_option(self, options: List[Dict[str, Any]], s: str) -> tuple[Optional[Dict[str, Any]], float]:
+        try:
+            from difflib import SequenceMatcher
+        except Exception:
+            key = str(s).strip().lower()
+            for o in options:
+                txt = str(o.get("text", "")).strip().lower()
+                if key == txt or key in txt:
+                    return o, 1.0
+            return None, 0.0
+    
+        key = str(s).strip().lower()
+        best = None
+        best_score = 0.0
+        for o in options:
+            txt = str(o.get("text", "")).strip().lower()
+            score = SequenceMatcher(None, key, txt).ratio()
+            if score > best_score:
+                best = o
+                best_score = score
+        return best, best_score
 
     # --- organizations -----------------------------------------------------
     def create_organization(self, name: str, domain: Optional[str] = None, person_ids: Optional[List[int]] = None) -> Dict[str, Any]:
@@ -184,21 +212,25 @@ class AffinityAPI:
         if le_id is None:
             return []
     
-        # Get all org field values, then keep only those for this list entry
-        values = [
-            fv for fv in self.get_field_values(organization_id=organization_id)
-            if int(fv.get("list_entry_id", 0)) == le_id
-        ]
+        values: List[Dict[str, Any]] = []
+        for fv in self.get_field_values(organization_id=organization_id):
+            leid = self._to_int(fv.get("list_entry_id"))
+            if leid == le_id:
+                values.append(fv)
     
         if not (resolve_dropdowns or include_field_meta):
             return values
     
         # Fetch field metadata for this list
-        fields = {int(f["id"]): f for f in self.get_fields(list_id=list_id)}
+        fields: Dict[int, Dict[str, Any]] = {}
+        for f in self.get_fields(list_id=list_id):
+            fid = self._to_int(f.get("id"))
+            if fid is not None:
+                fields[fid] = f
+    
         for fv in values:
-            try:
-                fid = int(fv.get("field_id"))
-            except Exception:
+            fid = self._to_int(fv.get("field_id"))
+            if fid is None:
                 continue
             field = fields.get(fid)
             if not field:
@@ -210,17 +242,22 @@ class AffinityAPI:
     
             if resolve_dropdowns:
                 opts = field.get("dropdown_options") or field.get("options") or []
-                by_id = {int(o["id"]): o.get("text") for o in opts if o.get("id") is not None}
+                by_id: Dict[int, Any] = {}
+                for o in opts:
+                    oid = self._to_int(o.get("id"))
+                    if oid is not None:
+                        by_id[oid] = o.get("text")
                 v = fv.get("value")
     
                 if isinstance(v, list):
-                    fv["value_text"] = [by_id.get(int(x), x) for x in v if x is not None]
+                    out: List[Any] = []
+                    for x in v:
+                        xid = self._to_int(x)
+                        out.append(by_id.get(xid, x) if xid is not None else x)
+                    fv["value_text"] = out
                 else:
-                    # handle int or stringified int
-                    try:
-                        fv["value_text"] = by_id.get(int(v), v)
-                    except Exception:
-                        fv["value_text"] = v
+                    xid = self._to_int(v)
+                    fv["value_text"] = by_id.get(xid, v) if xid is not None else v
     
         return values
 
@@ -237,9 +274,15 @@ class AffinityAPI:
         return self.add_organization_to_list(list_id, organization_id)
 
     def get_list_entry_id(self, list_id: int, organization_id: int) -> Optional[int]:
+        target = self._to_int(organization_id)
+        if target is None:
+            return None
         for entry in self.get_list_entries(list_id):
-            if int(entry.get("entity_id")) == int(organization_id):
-                return int(entry.get("id"))
+            eid = self._to_int(entry.get("entity_id"))
+            if eid is None:
+                continue
+            if eid == target:
+                return self._to_int(entry.get("id"))
         return None
 
     # --- fields & field values --------------------------------------------
