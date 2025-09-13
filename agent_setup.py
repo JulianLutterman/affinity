@@ -32,8 +32,8 @@ def build_agent() -> Agent:
         "Sometimes the user gives some extra preferences with additions to the header, follow those instructions if the user specifically gives them."
         "That top line should ALWAYS be bolded and underlined using the markdown/HTML."
         "You may include formatting where helpful: bold, italics, and underline. "
-        "If you write HTML (<strong>, <em>, <u>) or simple Markdown (**bold**, *italic*, __underline__), "
-        "the note tool will handle converting to an HTML note automatically. "
+        "If you write HTML (<strong>, <em>, <u>)"
+        "the note tool will handle converting to an HTML note automatically. You are encouraged to format your notes using this HTML option."
         "Be concise."
     )
 
